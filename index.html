@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Video Dashboard - With Sound</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM CDN -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        instagram: { pink: '#E1306C', orange: '#F77737', yellow: '#FCAF45' }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+        
+        .story-ring {
+            padding: 3px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #FCAF45, #F77737, #E1306C);
+        }
+        
+        .story-ring-viewed {
+            padding: 3px;
+            border-radius: 50%;
+            background: #D1D5DB;
+        }
+        
+        .gradient-btn {
+            background: linear-gradient(90deg, #F77737, #E1306C);
+        }
+        
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #D1D5DB; border-radius: 4px; }
+        
+        .video-progress { height: 3px; background: rgba(255,255,255,0.3); border-radius: 2px; }
+        .video-progress-bar { height: 100%; background: white; transition: width 0.1s linear; }
+        
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        .animate-pulse-live { animation: pulse-live 1.5s ease-in-out infinite; }
+        
+        .aspect-9-16 { aspect-ratio: 9 / 16; }
+        .aspect-4-5 { aspect-ratio: 4 / 5; }
+        
+        /* Sound wave animation */
+        @keyframes soundWave {
+            0%, 100% { height: 3px; }
+            50% { height: 15px; }
+        }
+        
+        .sound-bar {
+            width: 3px;
+            background: #E1306C;
+            border-radius: 2px;
+            animation: soundWave 0.5s ease-in-out infinite;
+        }
+        
+        .sound-bar:nth-child(2) { animation-delay: 0.1s; }
+        .sound-bar:nth-child(3) { animation-delay: 0.2s; }
+        .sound-bar:nth-child(4) { animation-delay: 0.3s; }
+        
+        /* Playing indicator */
+        .playing-indicator {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0,0,0,0.6);
+            padding: 4px 8px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Live badge */
+        .live-badge {
+            background: linear-gradient(45deg, #ff0000, #ff6b6b);
+            animation: livePulse 2s infinite;
+        }
+        
+        @keyframes livePulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(255,0,0,0.7); }
+            50% { box-shadow: 0 0 0 8px rgba(255,0,0,0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900 antialiased">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // All content is video-based with FULL AUDIO
+        const currentUser = {
+            username: "Abhinav Khare",
+            handle: "@abhi_navkhare",
+            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+            posts: 472,
+            followers: "12.4K",
+            following: 228,
+            bio: "UI Designer | Traveler | Lifestyle Blogger",
+            isVerified: true,
+            highlights: [
+                { 
+                    id: 1, 
+                    name: "New", 
+                    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                    poster: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop",
+                    duration: 15
+                },
+                { 
+                    id: 2, 
+                    name: "Garden", 
+                    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+                    poster: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=300&h=300&fit=crop",
+                    duration: 20
+                },
+                { 
+                    id: 3, 
+                    name: "Camera", 
+                    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+                    poster: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=300&h=300&fit=crop",
+                    duration: 18
+                },
+                { 
+                    id: 4, 
+                    name: "Walls", 
+                    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+                    poster: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=300&fit=crop",
+                    duration: 22
+                },
+                { 
+                    id: 5, 
+                    name: "Travel", 
+                    videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+                    poster: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=300&fit=crop",
+                    duration: 25
+                },
+            ],
+            myPosts: [
+                { id: 1, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4", poster: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=300&fit=crop", likes: 245 },
+                { id: 2, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4", poster: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=300&fit=crop", likes: 189 },
+                { id: 3, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4", poster: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=300&fit=crop", likes: 567 },
+                { id: 4, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4", poster: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&h=300&fit=crop", likes: 234 },
+                { id: 5, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4", poster: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&h=300&fit=crop", likes: 892 },
+                { id: 6, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4", poster: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=300&fit=crop", likes: 445 },
+                { id: 7, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4", poster: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=300&fit=crop", likes: 123 },
+                { id: 8, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4", poster: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&h=300&fit=crop", likes: 678 },
+                { id: 9, videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4", poster: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=300&h=300&fit=crop", likes: 334 },
+            ]
+        };
+
+        const stories = [
+            { 
+                id: 1, 
+                username: "Your story", 
+                avatar: currentUser.avatar, 
+                isUser: true, 
+                hasStory: false,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            },
+            { 
+                id: 2, 
+                username: "Sonya", 
+                avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face",
+                hasStory: true,
+                isLive: true,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                poster: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=300&h=400&fit=crop",
+                duration: 15
+            },
+            { 
+                id: 3, 
+                username: "Adam", 
+                avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
+                hasStory: true,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+                poster: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=300&h=400&fit=crop",
+                duration: 20
+            },
+            { 
+                id: 4, 
+                username: "Andrew", 
+                avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&h=150&fit=crop&crop=face",
+                hasStory: true,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+                poster: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=300&h=400&fit=crop",
+                duration: 18
+            },
+            { 
+                id: 5, 
+                username: "Nicole", 
+                avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&h=150&fit=crop&crop=face",
+                hasStory: true,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+                poster: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&h=400&fit=crop",
+                duration: 22
+            },
+            { 
+                id: 6, 
+                username: "Ashley", 
+                avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
+                hasStory: true,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+                poster: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=300&h=400&fit=crop",
+                duration: 25
+            },
+            { 
+                id: 7, 
+                username: "Michael", 
+                avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+                hasStory: true,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                poster: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=300&h=400&fit=crop",
+                duration: 12
+            },
+            { 
+                id: 8, 
+                username: "Damian", 
+                avatar: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=150&h=150&fit=crop&crop=face",
+                hasStory: true,
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
+                poster: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=300&h=400&fit=crop",
+                duration: 16
+            },
+        ];
+
+        const feedPosts = [
+            {
+                id: 1,
+                user: { name: "Sonya Leena", location: "Dubai, UAE", avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face" },
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+                poster: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&h=750&fit=crop",
+                likes: 360, likedBy: "Andrew", caption: "You can never dull my sparkle ✨", comments: 12, time: "2h"
+            },
+            {
+                id: 2,
+                user: { name: "Adam Addisin", location: "Oklahoma, US", avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&h=100&fit=crop&crop=face" },
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+                poster: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&h=750&fit=crop",
+                likes: 360, likedBy: "Andrew", caption: "In photography, there is a reality so subtle that...", comments: 8, time: "4h"
+            },
+            {
+                id: 3,
+                user: { name: "Andrew Devitt", location: "Auckland Park, SA", avatar: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=100&h=100&fit=crop&crop=face" },
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+                poster: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=600&h=750&fit=crop",
+                likes: 360, likedBy: "Sonya", caption: "The unexpected moment is always sweeter", comments: 15, time: "5h"
+            },
+            {
+                id: 4,
+                user: { name: "Nicole Segall", location: "New Delhi, India", avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&h=100&fit=crop&crop=face" },
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4",
+                poster: "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=600&h=750&fit=crop",
+                likes: 245, likedBy: "Michael", caption: "Colors of the city 🌈", comments: 6, time: "6h"
+            },
+            {
+                id: 5,
+                user: { name: "Michael Gilmore", location: "Lawrence, KS", avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face" },
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4",
+                poster: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&h=750&fit=crop",
+                likes: 189, likedBy: "Nicole", caption: "Mountain mornings 🏔️", comments: 4, time: "8h"
+            },
+            {
+                id: 6,
+                user: { name: "Damian Elton", location: "Birmingham, UK", avatar: "https://images.unsplash.com/photo-1504257432389-52343af06ae3?w=100&h=100&fit=crop&crop=face" },
+                videoUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
+                poster: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=600&h=750&fit=crop",
+                likes: 421, likedBy: "Adam", caption: "Weekend vibes only", comments: 22, time: "10h"
+            }
+        ];
+
+        // Sound Wave Component
+        const SoundWave = () => (
+            <div className="flex items-end gap-[2px] h-4">
+                <div className="sound-bar h-2"></div>
+                <div className="sound-bar h-3"></div>
+                <div className="sound-bar h-4"></div>
+                <div className="sound-bar h-2"></div>
+            </div>
+        );
+
+        // Story Circle with AUTO-PLAY SOUND on hover
+        const StoryCircle = ({ story, onClick }) => {
+            const [isHovered, setIsHovered] = useState(false);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const videoRef = useRef(null);
+
+            useEffect(() => {
+                if (isHovered && videoRef.current && story.videoUrl && !story.isUser) {
+                    // Play with sound immediately
+                    videoRef.current.volume = 0.5; // 50% volume
+                    videoRef.current.play().then(() => {
+                        setIsPlaying(true);
+                    }).catch(err => {
+                        console.log("Audio play failed (browser policy):", err);
+                        setIsPlaying(false);
+                    });
+                } else if (!isHovered && videoRef.current) {
+                    videoRef.current.pause();
+                    videoRef.current.currentTime = 0;
+                    setIsPlaying(false);
+                }
+            }, [isHovered, story.videoUrl, story.isUser]);
+
+            return (
+                <div 
+                    className="flex flex-col items-center space-y-2 min-w-[80px] cursor-pointer flex-shrink-0"
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                    onClick={() => onClick(story)}
+                >
+                    <div className={`${story.hasStory ? 'story-ring' : story.isUser ? 'p-[3px] rounded-full border-2 border-dashed border-gray-300' : 'story-ring-viewed'} relative`}>
+                        <div className="p-[2px] bg-white rounded-full overflow-hidden relative w-16 h-16">
+                            {/* Poster Image */}
+                            <img 
+                                src={story.avatar} 
+                                alt={story.username}
+                                className={`w-full h-full rounded-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+                            />
+                            {/* Hover Video WITH SOUND */}
+                            {story.videoUrl && !story.isUser && (
+                                <video
+                                    ref={videoRef}
+                                    src={story.videoUrl}
+                                    className={`absolute inset-0 w-full h-full rounded-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
+                                    playsInline
+                                    muted={false} // NOT MUTED - Full sound
+                                    loop
+                                />
+                            )}
+                        </div>
+                        
+                        {/* Live Badge */}
+                        {story.isLive && (
+                            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 live-badge text-white text-[9px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap">
+                                LIVE
+                            </span>
+                        )}
+                        
+                        {/* Sound Playing Indicator */}
+                        {isPlaying && story.hasStory && !story.isUser && (
+                            <div className="absolute -top-1 -right-1 bg-[#E1306C] text-white rounded-full p-1">
+                                <SoundWave />
+                            </div>
+                        )}
+                    </div>
+                    <span className="text-xs text-gray-700 font-medium truncate max-w-[80px]">
+                        {story.username}
+                    </span>
+                </div>
+            );
+        };
+
+        // Fullscreen Story Modal with FULL SOUND
+        const StoryModal = ({ story, onClose, onNext, onPrev, hasNext, hasPrev }) => {
+            const videoRef = useRef(null);
+            const [progress, setProgress] = useState(0);
+            const [isPaused, setIsPaused] = useState(false);
+            const [volume, setVolume] = useState(1);
+
+            useEffect(() => {
+                if (videoRef.current) {
+                    videoRef.current.volume = volume;
+                    videoRef.current.play().catch(() => {});
+                }
+            }, [story, volume]);
+
+            useEffect(() => {
+                let interval;
+                if (videoRef.current && !isPaused) {
+                    interval = setInterval(() => {
+                        const prog = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+                        setProgress(prog || 0);
+                    }, 100);
+                }
+                return () => clearInterval(interval);
+            }, [isPaused]);
+
+            const handleVideoEnd = () => {
+                onNext();
+            };
+
+            const togglePause = () => {
+                if (videoRef.current) {
+                    if (isPaused) {
+                        videoRef.current.play();
+                    } else {
+                        videoRef.current.pause();
+                    }
+                    setIsPaused(!isPaused);
+                }
+            };
+
+            const handleVolumeChange = (e) => {
+                const newVol = parseFloat(e.target.value);
+                setVolume(newVol);
+                if (videoRef.current) {
+                    videoRef.current.volume = newVol;
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" onClick={onClose}>
+                    {/* Close Button */}
+                    <button className="absolute top-4 right-4 text-white z-50 p-2 hover:bg-white/10 rounded-full transition-colors" onClick={onClose}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+
+                    {/* Navigation */}
+                    {hasPrev && (
+                        <button 
+                            className="absolute left-4 top-1/2 -translate-y-1/2 text-white p-3 bg-black/30 rounded-full hover:bg-black/50 transition-colors z-50"
+                            onClick={(e) => { e.stopPropagation(); onPrev(); }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="15 18 9 12 15 6"/>
+                            </svg>
+                        </button>
+                    )}
+                    {hasNext && (
+                        <button 
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-white p-3 bg-black/30 rounded-full hover:bg-black/50 transition-colors z-50"
+                            onClick={(e) => { e.stopPropagation(); onNext(); }}
+                        >
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </button>
+                    )}
+
+                    {/* Story Container */}
+                    <div className="relative w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+                        {/* Progress Bar */}
+                        <div className="absolute top-0 left-0 right-0 z-10 px-2 pt-2">
+                            <div className="video-progress w-full">
+                                <div className="video-progress-bar" style={{ width: `${progress}%` }}></div>
+                            </div>
+                        </div>
+
+                        {/* Header */}
+                        <div className="absolute top-4 left-0 right-0 z-10 px-4 flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <img src={story.avatar} alt={story.username} className="w-10 h-10 rounded-full border-2 border-white" />
+                                <div>
+                                    <p className="text-white font-semibold text-sm">{story.username}</p>
+                                    <p className="text-white/70 text-xs">2h ago</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center space-x-3">
+                                {story.isLive && (
+                                    <span className="live-badge text-white text-xs px-3 py-1 rounded-full font-bold">LIVE</span>
+                                )}
+                                {/* Volume Control */}
+                                <div className="flex items-center space-x-2 bg-black/30 rounded-full px-3 py-1">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                    </svg>
+                                    <input 
+                                        type="range" 
+                                        min="0" 
+                                        max="1" 
+                                        step="0.1" 
+                                        value={volume}
+                                        onChange={handleVolumeChange}
+                                        className="w-20 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Video Content - FULL SOUND */}
+                        <div className="relative aspect-9-16 bg-black rounded-lg overflow-hidden" onClick={togglePause}>
+                            <video
+                                ref={videoRef}
+                                src={story.videoUrl}
+                                poster={story.poster}
+                                className="w-full h-full object-cover"
+                                onEnded={handleVideoEnd}
+                                playsInline
+                                muted={false} // NOT MUTED
+                                loop={story.isLive}
+                            />
+                            
+                            {/* Pause Overlay */}
+                            {isPaused && (
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                                    <div className="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center">
+                                        <svg width="32" height="32" viewBox="0 0 24 24" fill="white">
+                                            <polygon points="5 3 19 12 5 21 5 3"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Bottom Actions */}
+                        <div className="absolute bottom-4 left-0 right-0 px-4 flex items-center space-x-3">
+                            <input 
+                                type="text" 
+                                placeholder="Send message..." 
+                                className="flex-1 bg-white/20 backdrop-blur-md text-white placeholder-white/70 px-4 py-3 rounded-full text-sm border border-white/30 focus:outline-none focus:bg-white/30"
+                            />
+                            <button className="text-white p-3 bg-white/20 backdrop-blur-md rounded-full hover:bg-white/30">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="m22 2-7 20-4-9-9-4Z"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Highlight Modal with FULL SOUND
+        const HighlightModal = ({ highlight, onClose }) => {
+            const videoRef = useRef(null);
+            const [progress, setProgress] = useState(0);
+            const [volume, setVolume] = useState(1);
+
+            useEffect(() => {
+                if (videoRef.current) {
+                    videoRef.current.volume = volume;
+                    videoRef.current.play().catch(() => {});
+                }
+            }, [highlight, volume]);
+
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    if (videoRef.current) {
+                        const prog = (videoRef.current.currentTime / videoRef.current.duration) * 100;
+                        setProgress(prog || 0);
+                    }
+                }, 100);
+                return () => clearInterval(interval);
+            }, []);
+
+            const handleVolumeChange = (e) => {
+                const newVol = parseFloat(e.target.value);
+                setVolume(newVol);
+                if (videoRef.current) {
+                    videoRef.current.volume = newVol;
+                }
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" onClick={onClose}>
+                    <button className="absolute top-4 right-4 text-white z-50 p-2" onClick={onClose}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"/>
+                            <line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+
+                    <div className="relative w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute top-0 left-0 right-0 z-10 px-2 pt-2">
+                            <div className="video-progress w-full">
+                                <div className="video-progress-bar" style={{ width: `${progress}%` }}></div>
+                            </div>
+                        </div>
+
+                        <div className="absolute top-4 left-0 right-0 z-10 px-4 flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                                <img src={currentUser.avatar} alt={currentUser.username} className="w-10 h-10 rounded-full border-2 border-white" />
+                                <p className="text-white font-semibold text-sm">{highlight.name}</p>
+                            </div>
+                            {/* Volume Control */}
+                            <div className="flex items-center space-x-2 bg-black/30 rounded-full px-3 py-1">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                                </svg>
+                                <input 
+                                    type="range" 
+                                    min="0" 
+                                    max="1" 
+                                    step="0.1" 
+                                    value={volume}
+                                    onChange={handleVolumeChange}
+                                    className="w-20 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="relative aspect-9-16 bg-black rounded-lg overflow-hidden">
+                            <video
+                                ref={videoRef}
+                                src={highlight.videoUrl}
+                                poster={highlight.poster}
+                                className="w-full h-full object-cover"
+                                playsInline
+                                muted={false} // NOT MUTED - Full sound
+                                loop
+                            />
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Stories Section
+        const Stories = ({ onStoryClick }) => {
+            return (
+                <div className="bg-white rounded-2xl p-4 mb-6 shadow-sm border border-gray-100">
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Stories</h2>
+                    <div className="flex space-x-4 overflow-x-auto scrollbar-hide pb-2">
+                        {stories.map((story) => (
+                            <StoryCircle key={story.id} story={story} onClick={onStoryClick} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // Feed Video Card with AUTO-PLAY SOUND on hover
+        const PostCard = ({ post }) => {
+            const [liked, setLiked] = useState(false);
+            const [saved, setSaved] = useState(false);
+            const [showModal, setShowModal] = useState(false);
+            const [isHovered, setIsHovered] = useState(false);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const videoRef = useRef(null);
+
+            useEffect(() => {
+                if (isHovered && videoRef.current) {
+                    // Play with sound immediately
+                    videoRef.current.volume = 0.7; // 70% volume
+                    videoRef.current.play().then(() => {
+                        setIsPlaying(true);
+                    }).catch(err => {
+                        console.log("Audio play failed:", err);
+                    });
+                } else if (!isHovered && videoRef.current) {
+                    videoRef.current.pause();
+                    videoRef.current.currentTime = 0;
+                    setIsPlaying(false);
+                }
+            }, [isHovered]);
+
+            return (
+                <>
+                    <div className="bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                        <div className="flex items-center justify-between p-3">
+                            <div className="flex items-center space-x-3">
+                                <img src={post.user.avatar} alt={post.user.name} className="w-8 h-8 rounded-full object-cover" />
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-900">{post.user.name}</h3>
+                                    <p className="text-xs text-gray-500">{post.user.location}</p>
+                                </div>
+                            </div>
+                            <button className="text-gray-400 hover:text-gray-600">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Hover Video with FULL SOUND */}
+                        <div 
+                            className="relative aspect-[4/5] bg-gray-900 overflow-hidden cursor-pointer"
+                            onMouseEnter={() => setIsHovered(true)}
+                            onMouseLeave={() => setIsHovered(false)}
+                            onClick={() => setShowModal(true)}
+                        >
+                            {/* Poster Image */}
+                            <img 
+                                src={post.poster} 
+                                alt={post.caption}
+                                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+                            />
+                            
+                            {/* Video with SOUND */}
+                            <video
+                                ref={videoRef}
+                                src={post.videoUrl}
+                                className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
+                                playsInline
+                                muted={false} // NOT MUTED
+                                loop
+                            />
+                            
+                            {/* Sound Playing Indicator */}
+                            {isPlaying && (
+                                <div className="playing-indicator">
+                                    <SoundWave />
+                                    <span className="text-white text-xs font-medium">Sound On</span>
+                                </div>
+                            )}
+                            
+                            {/* Play Button when paused */}
+                            {!isPlaying && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                            <polygon points="5 3 19 12 5 21 5 3"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="p-3">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center space-x-4">
+                                    <button onClick={() => setLiked(!liked)} className={`transition-transform active:scale-125 ${liked ? 'text-[#E1306C]' : 'text-gray-700'}`}>
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill={liked ? "#E1306C" : "none"} stroke="currentColor" strokeWidth="2">
+                                            <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                                        </svg>
+                                    </button>
+                                    <button className="text-gray-700">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>
+                                        </svg>
+                                    </button>
+                                    <button className="text-gray-700">
+                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                            <path d="m22 2-7 20-4-9-9-4Z"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <button onClick={() => setSaved(!saved)} className={saved ? 'text-gray-900' : 'text-gray-700'}>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+                                        <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/>
+                                    </svg>
+                                </button>
+                            </div>
+
+                            <p className="text-sm text-gray-800 mb-1">
+                                Liked by <span className="font-semibold">{post.likedBy}</span> and <span className="font-semibold">{post.likes} others</span>
+                            </p>
+                            <p className="text-sm text-gray-800 mb-1">{post.caption}</p>
+                            <p className="text-sm text-gray-500 mb-1 cursor-pointer">View all {post.comments} comments</p>
+                            <p className="text-xs text-gray-400 uppercase tracking-wide">{post.time} ago</p>
+                        </div>
+                    </div>
+
+                    {/* Fullscreen Video Modal with SOUND */}
+                    {showModal && (
+                        <div className="fixed inset-0 bg-black z-50 flex items-center justify-center" onClick={() => setShowModal(false)}>
+                            <button className="absolute top-4 right-4 text-white z-50" onClick={() => setShowModal(false)}>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                            <div className="w-full max-w-4xl aspect-video" onClick={(e) => e.stopPropagation()}>
+                                <video
+                                    src={post.videoUrl}
+                                    poster={post.poster}
+                                    autoPlay
+                                    controls
+                                    muted={false} // NOT MUTED
+                                    className="w-full h-full object-cover rounded-lg"
+                                />
+                            </div>
+                        </div>
+                    )}
+                </>
+            );
+        };
+
+        // Feed Section
+        const Feed = () => {
+            return (
+                <div>
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Feed</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {feedPosts.map((post) => (
+                            <PostCard key={post.id} post={post} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // Sidebar Highlight with AUTO-PLAY SOUND
+        const SidebarHighlight = ({ highlight, onClick }) => {
+            const [isHovered, setIsHovered] = useState(false);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const videoRef = useRef(null);
+
+            useEffect(() => {
+                if (isHovered && videoRef.current) {
+                    videoRef.current.volume = 0.4; // 40% volume for small preview
+                    videoRef.current.play().then(() => {
+                        setIsPlaying(true);
+                    }).catch(() => {});
+                } else if (!isHovered && videoRef.current) {
+                    videoRef.current.pause();
+                    videoRef.current.currentTime = 0;
+                    setIsPlaying(false);
+                }
+            }, [isHovered]);
+
+            return (
+                <div 
+                    className="flex flex-col items-center min-w-[64px] cursor-pointer group"
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                    onClick={() => onClick(highlight)}
+                >
+                    <div className="relative w-14 h-14 lg:w-16 lg:h-16 rounded-full overflow-hidden">
+                        {/* Poster */}
+                        <img 
+                            src={highlight.poster} 
+                            alt={highlight.name}
+                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+                        />
+                        {/* Video with SOUND */}
+                        <video
+                            ref={videoRef}
+                            src={highlight.videoUrl}
+                            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
+                            playsInline
+                            muted={false} // NOT MUTED
+                            loop
+                        />
+                        {/* Sound Indicator */}
+                        {isPlaying && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <SoundWave />
+                            </div>
+                        )}
+                    </div>
+                    <span className="text-xs text-gray-600 mt-1 font-medium">{highlight.name}</span>
+                </div>
+            );
+        };
+
+        // Sidebar My Post with AUTO-PLAY SOUND
+        const SidebarPost = ({ post }) => {
+            const [isHovered, setIsHovered] = useState(false);
+            const [isPlaying, setIsPlaying] = useState(false);
+            const videoRef = useRef(null);
+
+            useEffect(() => {
+                if (isHovered && videoRef.current) {
+                    videoRef.current.volume = 0.3; // 30% volume for small grid
+                    videoRef.current.play().then(() => {
+                        setIsPlaying(true);
+                    }).catch(() => {});
+                } else if (!isHovered && videoRef.current) {
+                    videoRef.current.pause();
+                    videoRef.current.currentTime = 0;
+                    setIsPlaying(false);
+                }
+            }, [isHovered]);
+
+            return (
+                <div 
+                    className="relative aspect-square cursor-pointer group overflow-hidden rounded-md"
+                    onMouseEnter={() => setIsHovered(true)}
+                    onMouseLeave={() => setIsHovered(false)}
+                >
+                    {/* Poster */}
+                    <img 
+                        src={post.poster} 
+                        alt="Post"
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
+                    />
+                    {/* Video with SOUND */}
+                    <video
+                        ref={videoRef}
+                        src={post.videoUrl}
+                        className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}
+                        playsInline
+                        muted={false} // NOT MUTED
+                        loop
+                    />
+                    {/* Likes Overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100 pointer-events-none">
+                        <div className="flex items-center space-x-1 text-white">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                                <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                            </svg>
+                            <span className="text-sm font-semibold">{post.likes}</span>
+                        </div>
+                    </div>
+                    {/* Sound Indicator */}
+                    {isPlaying && (
+                        <div className="absolute top-1 right-1">
+                            <div className="bg-black/50 rounded-full p-1">
+                                <SoundWave />
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // Scrollable Sidebar
+        const Sidebar = ({ onHighlightClick }) => {
+            const navItems = [
+                { icon: "home", label: "Feed", active: true },
+                { icon: "compass", label: "Explore" },
+                { icon: "clapperboard", label: "Reels" },
+                { icon: "settings", label: "Settings" },
+            ];
+
+            return (
+                <div className="w-full lg:w-80 bg-white lg:h-screen lg:fixed lg:left-0 lg:top-0 border-r border-gray-100 flex flex-col">
+                    {/* Mobile Header */}
+                    <div className="lg:hidden flex items-center justify-between p-4 border-b border-gray-100">
+                        <div className="flex items-center space-x-2">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <rect width="20" height="20" x="2" y="2" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+                            </svg>
+                            <span className="font-bold text-xl">Instagram</span>
+                        </div>
+                        <div className="flex items-center space-x-3">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                            </svg>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="m6 9 6 6 6-6"/>
+                            </svg>
+                        </div>
+                    </div>
+
+                    {/* Desktop Logo */}
+                    <div className="hidden lg:flex items-center px-6 py-6 flex-shrink-0">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect width="20" height="20" x="2" y="2" rx="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/>
+                        </svg>
+                        <span className="font-bold text-2xl ml-3">Instagram</span>
+                    </div>
+
+                    {/* Scrollable Content */}
+                    <div className="flex-1 overflow-y-auto scrollbar-thin px-4 lg:px-6 py-4">
+                        {/* Profile */}
+                        <div className="flex lg:flex-col items-center lg:space-y-3 mb-6">
+                            <div className="relative">
+                                <img src={currentUser.avatar} alt={currentUser.username} className="w-16 h-16 lg:w-24 lg:h-24 rounded-full object-cover border-4 border-white shadow-lg" />
+                                {currentUser.isVerified && (
+                                    <div className="absolute bottom-0 right-0 bg-blue-500 text-white rounded-full p-1">
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
+                                            <polyline points="20 6 9 17 4 12"/>
+                                        </svg>
+                                    </div>
+                                )}
+                            </div>
+                            <div className="ml-4 lg:ml-0 text-left lg:text-center">
+                                <h2 className="font-bold text-gray-900 text-lg">{currentUser.username}</h2>
+                                <p className="text-sm text-gray-500">{currentUser.handle}</p>
+                            </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="flex justify-center space-x-6 py-4 border-y border-gray-100 mb-4">
+                            <div className="text-center">
+                                <p className="font-bold text-gray-900 text-lg">{currentUser.posts}</p>
+                                <p className="text-xs text-gray-500 uppercase">Posts</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="font-bold text-gray-900 text-lg">{currentUser.followers}</p>
+                                <p className="text-xs text-gray-500 uppercase">Followers</p>
+                            </div>
+                            <div className="text-center">
+                                <p className="font-bold text-gray-900 text-lg">{currentUser.following}</p>
+                                <p className="text-xs text-gray-500 uppercase">Following</p>
+                            </div>
+                        </div>
+
+                        {/* Bio */}
+                        <p className="text-sm text-gray-600 text-center mb-6 hidden lg:block">{currentUser.bio}</p>
+
+                        {/* Video Highlights - AUTO PLAY SOUND */}
+                        <div className="mb-6">
+                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 hidden lg:block">Story Highlights</h3>
+                            <div className="flex space-x-3 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0 scrollbar-hide">
+                                {currentUser.highlights.map((highlight) => (
+                                    <SidebarHighlight 
+                                        key={highlight.id} 
+                                        highlight={highlight} 
+                                        onClick={onHighlightClick} 
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* My Video Posts Grid - AUTO PLAY SOUND */}
+                        <div className="mb-6">
+                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 hidden lg:block">My Posts</h3>
+                            <div className="grid grid-cols-3 gap-1 lg:gap-2">
+                                {currentUser.myPosts.map((post) => (
+                                    <SidebarPost key={post.id} post={post} />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Navigation */}
+                        <nav className="hidden lg:flex flex-col space-y-1 mt-4 pb-4">
+                            {navItems.map((item) => (
+                                <a key={item.label} href="#" className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors ${item.active ? 'bg-gray-100 text-gray-900 font-medium' : 'text-gray-600 hover:bg-gray-50'}`}>
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        {item.icon === "home" && <><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>}
+                                        {item.icon === "compass" && <><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></>}
+                                        {item.icon === "clapperboard" && <><path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></>}
+                                        {item.icon === "settings" && <><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></>}
+                                    </svg>
+                                    <span>{item.label}</span>
+                                </a>
+                            ))}
+                            <a href="#" className="flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors mt-4">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/>
+                                </svg>
+                                <span>Logout</span>
+                            </a>
+                        </nav>
+                    </div>
+
+                    {/* Mobile Bottom Nav */}
+                    <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 flex justify-around py-3 px-4 z-40">
+                        <a href="#" className="text-gray-900">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                            </svg>
+                        </a>
+                        <a href="#" className="text-gray-600">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+                            </svg>
+                        </a>
+                        <a href="#" className="text-gray-600">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z"/><path d="m6.2 5.3 3.1 3.9"/><path d="m12.4 3.4 3.1 4"/><path d="M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>
+                            </svg>
+                        </a>
+                        <a href="#" className="text-gray-600">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            );
+        };
+
+        // Main App
+        const App = () => {
+            const [activeStory, setActiveStory] = useState(null);
+            const [activeHighlight, setActiveHighlight] = useState(null);
+            const [currentStoryIndex, setCurrentStoryIndex] = useState(0);
+
+            const handleStoryClick = (story) => {
+                const index = stories.findIndex(s => s.id === story.id);
+                setCurrentStoryIndex(index);
+                setActiveStory(story);
+            };
+
+            const handleNextStory = () => {
+                if (currentStoryIndex < stories.length - 1) {
+                    const nextIndex = currentStoryIndex + 1;
+                    setCurrentStoryIndex(nextIndex);
+                    setActiveStory(stories[nextIndex]);
+                } else {
+                    setActiveStory(null);
+                }
+            };
+
+            const handlePrevStory = () => {
+                if (currentStoryIndex > 0) {
+                    const prevIndex = currentStoryIndex - 1;
+                    setCurrentStoryIndex(prevIndex);
+                    setActiveStory(stories[prevIndex]);
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-50 pb-20 lg:pb-0">
+                    <div className="lg:ml-80">
+                        {/* Desktop Header */}
+                        <header className="hidden lg:flex items-center justify-between px-8 py-4 bg-white sticky top-0 z-30 border-b border-gray-100">
+                            <div className="flex-1 max-w-md">
+                                <div className="relative">
+                                    <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                                    </svg>
+                                    <input type="text" placeholder="Search" className="w-full pl-10 pr-4 py-2.5 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-gray-200" />
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center space-x-4">
+                                <button className="relative p-2 text-gray-700 hover:bg-gray-100 rounded-full">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>
+                                    </svg>
+                                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+                                </button>
+                                <button className="p-2 text-gray-700 hover:bg-gray-100 rounded-full">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <path d="m6 9 6 6 6-6"/>
+                                    </svg>
+                                </button>
+                                <button className="flex items-center space-x-2 gradient-btn text-white px-5 py-2.5 rounded-full font-medium hover:opacity-90 shadow-lg">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>
+                                    </svg>
+                                    <span>Create a post</span>
+                                </button>
+                            </div>
+                        </header>
+
+                        {/* Main Content */}
+                        <main className="px-4 lg:px-8 py-4 lg:py-6 max-w-7xl mx-auto">
+                            <Stories onStoryClick={handleStoryClick} />
+                            <Feed />
+                        </main>
+                    </div>
+
+                    {/* Scrollable Sidebar */}
+                    <Sidebar onHighlightClick={setActiveHighlight} />
+
+                    {/* Fullscreen Story Modal with FULL SOUND */}
+                    {activeStory && (
+                        <StoryModal 
+                            story={activeStory}
+                            onClose={() => setActiveStory(null)}
+                            onNext={handleNextStory}
+                            onPrev={handlePrevStory}
+                            hasNext={currentStoryIndex < stories.length - 1}
+                            hasPrev={currentStoryIndex > 0}
+                        />
+                    )}
+
+                    {/* Highlight Modal with FULL SOUND */}
+                    {activeHighlight && (
+                        <HighlightModal 
+                            highlight={activeHighlight}
+                            onClose={() => setActiveHighlight(null)}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
